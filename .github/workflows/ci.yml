@@ -110,8 +110,6 @@ jobs:
           files: |
             artifacts/*
           body: |
-            Statically linked Linux binaries (`CGO_ENABLED=0`).
-
             SHA256 checksums:
             ```
             ${{ steps.checksums.outputs.sums }}
