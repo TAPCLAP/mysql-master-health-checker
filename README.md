@@ -1,6 +1,6 @@
 # mysql-master-health-checker
 
-HTTPS health-check service for MySQL master nodes. The service exposes a lightweight HTTP endpoint for load balancers and orchestrators and reports **200 OK** only when the node is eligible to receive write traffic.
+HTTPS health-check service for MySQL master nodes. The service exposes a lightweight HTTP endpoint for load balancers and orchestrators and reports **200 OK** only when the node is eligible to receive write traffic. TLS for the health endpoint is enabled by default and can be disabled.
 
 ## Health criteria
 
@@ -24,9 +24,10 @@ Every setting is available via environment variable and command-line flag. Envir
 
 | Variable | Flag | Default | Description |
 |----------|------|---------|-------------|
-| `LISTEN_ADDR` | `--listen` | `:18848` | HTTPS health-check listen address |
-| `TLS_CERT_FILE` | `--tls-cert` | — | Path to TLS certificate (**required**) |
-| `TLS_KEY_FILE` | `--tls-key` | — | Path to TLS private key (**required**) |
+| `LISTEN_ADDR` | `--listen` | `:18848` | Health-check listen address |
+| `TLS_ENABLED` | `--tls-enabled` | `true` | Enable TLS for health-check endpoint |
+| `TLS_CERT_FILE` | `--tls-cert` | — | Path to TLS certificate (required when TLS is enabled) |
+| `TLS_KEY_FILE` | `--tls-key` | — | Path to TLS private key (required when TLS is enabled) |
 | `MYSQL_DSN` | `--mysql-dsn` | — | Full MySQL DSN; overrides host/user/password settings |
 | `MYSQL_HOST` | `--mysql-host` | `127.0.0.1` | MySQL host when DSN is not set |
 | `MYSQL_PORT` | `--mysql-port` | `3306` | MySQL port when DSN is not set |
@@ -42,11 +43,18 @@ Every setting is available via environment variable and command-line flag. Envir
 
 ## Endpoints
 
-Health-check (HTTPS):
+Health-check (HTTPS by default):
 
 - `/`
 - `/health`
 - `/healthz`
+
+Plain HTTP example:
+
+```bash
+./bin/mysql-master-health-checker --tls-enabled=false --mysql-dsn='user:pass@tcp(127.0.0.1:3306)/'
+curl http://127.0.0.1:18848/health
+```
 
 Metrics (HTTP by default):
 

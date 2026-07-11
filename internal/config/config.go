@@ -19,6 +19,7 @@ const (
 // Config holds runtime configuration for the health check service.
 type Config struct {
 	ListenAddr    string
+	TLSEnabled    bool
 	TLSCertFile   string
 	TLSKeyFile    string
 	MySQLDSN      string
@@ -41,7 +42,8 @@ func Load() (Config, error) {
 }
 
 func load(fs *flag.FlagSet, args []string) (Config, error) {
-	listen := fs.String("listen", defaultListenAddr, "HTTPS listen address")
+	listen := fs.String("listen", defaultListenAddr, "health-check listen address")
+	tlsEnabled := fs.Bool("tls-enabled", true, "enable TLS for health-check endpoint")
 	tlsCert := fs.String("tls-cert", "", "path to TLS certificate file")
 	tlsKey := fs.String("tls-key", "", "path to TLS private key file")
 	mysqlHost := fs.String("mysql-host", defaultMySQLHost, "MySQL host")
@@ -63,6 +65,7 @@ func load(fs *flag.FlagSet, args []string) (Config, error) {
 
 	cfg := Config{
 		ListenAddr:    resolveString("LISTEN_ADDR", *listen, defaultListenAddr),
+		TLSEnabled:    resolveBool("TLS_ENABLED", *tlsEnabled, true),
 		TLSCertFile:   resolveString("TLS_CERT_FILE", *tlsCert, ""),
 		TLSKeyFile:    resolveString("TLS_KEY_FILE", *tlsKey, ""),
 		CheckInterval: resolveDuration("CHECK_INTERVAL", *checkInterval, defaultCheckInterval),
@@ -89,8 +92,10 @@ func load(fs *flag.FlagSet, args []string) (Config, error) {
 			user, password, host, port)
 	}
 
-	if cfg.TLSCertFile == "" || cfg.TLSKeyFile == "" {
-		return Config{}, errors.New("TLS_CERT_FILE and TLS_KEY_FILE (or --tls-cert and --tls-key) are required")
+	if cfg.TLSEnabled {
+		if cfg.TLSCertFile == "" || cfg.TLSKeyFile == "" {
+			return Config{}, errors.New("TLS_CERT_FILE and TLS_KEY_FILE (or --tls-cert and --tls-key) are required when TLS is enabled")
+		}
 	}
 	if cfg.CheckInterval <= 0 {
 		return Config{}, errors.New("check interval must be positive")

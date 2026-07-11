@@ -16,9 +16,10 @@ const (
 	writeTimeout = 5 * time.Second
 )
 
-// Server exposes the cached health state over HTTPS.
+// Server exposes the cached health state over HTTP or HTTPS.
 type Server struct {
 	addr       string
+	tlsEnabled bool
 	certFile   string
 	keyFile    string
 	store      *health.Store
@@ -26,18 +27,19 @@ type Server struct {
 	httpServer *http.Server
 }
 
-// New creates an HTTPS server.
-func New(addr, certFile, keyFile string, store *health.Store, logger *slog.Logger) *Server {
+// New creates a health-check HTTP server.
+func New(addr string, tlsEnabled bool, certFile, keyFile string, store *health.Store, logger *slog.Logger) *Server {
 	if logger == nil {
 		logger = slog.Default()
 	}
 
 	s := &Server{
-		addr:     addr,
-		certFile: certFile,
-		keyFile:  keyFile,
-		store:    store,
-		logger:   logger,
+		addr:       addr,
+		tlsEnabled: tlsEnabled,
+		certFile:   certFile,
+		keyFile:    keyFile,
+		store:      store,
+		logger:     logger,
 	}
 
 	mux := http.NewServeMux()
@@ -56,11 +58,19 @@ func New(addr, certFile, keyFile string, store *health.Store, logger *slog.Logge
 	return s
 }
 
-// ListenAndServeTLS starts the HTTPS server and blocks until it stops.
-func (s *Server) ListenAndServeTLS() error {
-	s.logger.Info("starting https server", "addr", s.addr)
-	if err := s.httpServer.ListenAndServeTLS(s.certFile, s.keyFile); err != nil && err != http.ErrServerClosed {
-		return fmt.Errorf("listen and serve tls: %w", err)
+// ListenAndServe starts the server and blocks until it stops.
+func (s *Server) ListenAndServe() error {
+	if s.tlsEnabled {
+		s.logger.Info("starting health server with tls", "addr", s.addr)
+		if err := s.httpServer.ListenAndServeTLS(s.certFile, s.keyFile); err != nil && err != http.ErrServerClosed {
+			return fmt.Errorf("listen and serve tls: %w", err)
+		}
+		return nil
+	}
+
+	s.logger.Info("starting health server", "addr", s.addr, "tls", false)
+	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("listen and serve: %w", err)
 	}
 	return nil
 }

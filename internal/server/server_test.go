@@ -23,7 +23,7 @@ func TestHandleHealthOK(t *testing.T) {
 	})
 	t.Setenv("MYSQL_MASTER", "1")
 
-	srv := New(":0", "", "", store, nil)
+	srv := New(":0", false, "", "", store, nil)
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
 
@@ -47,7 +47,7 @@ func TestHandleHealthUnavailable(t *testing.T) {
 	})
 	t.Setenv("MYSQL_MASTER", "1")
 
-	srv := New(":0", "", "", store, nil)
+	srv := New(":0", false, "", "", store, nil)
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
 
@@ -68,12 +68,39 @@ func TestHandleHealthRequiresMasterEnv(t *testing.T) {
 	})
 	t.Setenv("MYSQL_MASTER", "0")
 
-	srv := New(":0", "", "", store, nil)
+	srv := New(":0", false, "", "", store, nil)
 	rec := httptest.NewRecorder()
 	srv.handleHealth(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503", rec.Code)
+	}
+}
+
+func TestListenAndServeWithoutTLS(t *testing.T) {
+	store := health.NewStore()
+	store.Update(health.Result{
+		Available:     true,
+		ReadOnly:      false,
+		ReadOnlyKnown: true,
+		Healthy:       true,
+	})
+	t.Setenv("MYSQL_MASTER", "1")
+
+	srv := New("127.0.0.1:0", false, "", "", store, nil)
+	ts := httptest.NewServer(http.HandlerFunc(srv.handleHealth))
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/health")
+	if err != nil {
+		t.Fatalf("GET /health: %v", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
 }
 
@@ -90,7 +117,7 @@ func TestListenAndServeTLSUsesProvidedCertificate(t *testing.T) {
 	})
 	t.Setenv("MYSQL_MASTER", "1")
 
-	srv := New("127.0.0.1:0", certFile, keyFile, store, nil)
+	srv := New("127.0.0.1:0", true, certFile, keyFile, store, nil)
 
 	ts := httptest.NewUnstartedServer(http.HandlerFunc(srv.handleHealth))
 	ts.TLS = &tls.Config{MinVersion: tls.VersionTLS12}

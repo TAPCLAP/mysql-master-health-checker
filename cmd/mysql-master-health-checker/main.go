@@ -46,13 +46,13 @@ func main() {
 
 	go runner.Run(ctx)
 
-	srv := server.New(cfg.ListenAddr, cfg.TLSCertFile, cfg.TLSKeyFile, store, logger)
+	srv := server.New(cfg.ListenAddr, cfg.TLSEnabled, cfg.TLSCertFile, cfg.TLSKeyFile, store, logger)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := srv.ListenAndServeTLS(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("health server stopped with error", "error", err)
 			cancel()
 		}

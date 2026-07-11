@@ -19,13 +19,30 @@ func clearEnv(t *testing.T, keys ...string) {
 	}
 }
 
-func TestLoadRequiresTLS(t *testing.T) {
-	clearEnv(t, "TLS_CERT_FILE", "TLS_KEY_FILE", "MYSQL_DSN")
+func TestLoadRequiresTLSWhenEnabled(t *testing.T) {
+	clearEnv(t, "TLS_ENABLED", "TLS_CERT_FILE", "TLS_KEY_FILE", "MYSQL_DSN")
 	t.Setenv("MYSQL_DSN", "user:pass@tcp(127.0.0.1:3306)/")
 
 	_, err := testLoad(t, nil)
 	if err == nil {
 		t.Fatal("expected error when TLS files are missing")
+	}
+}
+
+func TestLoadAllowsPlainHTTPWhenTLSDisabled(t *testing.T) {
+	clearEnv(t, "TLS_ENABLED", "TLS_CERT_FILE", "TLS_KEY_FILE", "MYSQL_DSN")
+	t.Setenv("TLS_ENABLED", "false")
+	t.Setenv("MYSQL_DSN", "user:pass@tcp(127.0.0.1:3306)/")
+
+	cfg, err := testLoad(t, nil)
+	if err != nil {
+		t.Fatalf("load() error = %v", err)
+	}
+	if cfg.TLSEnabled {
+		t.Fatal("TLS should be disabled")
+	}
+	if cfg.TLSCertFile != "" || cfg.TLSKeyFile != "" {
+		t.Fatalf("unexpected TLS files: cert=%q key=%q", cfg.TLSCertFile, cfg.TLSKeyFile)
 	}
 }
 
