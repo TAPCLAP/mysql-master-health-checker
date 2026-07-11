@@ -1,0 +1,7 @@
+/bin/
+/artifacts/
+/cover.out
+/cover-integration.out
+/coverage.html
+*.test
+.DS_Store

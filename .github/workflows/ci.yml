@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  lint:
+    permissions:
+      contents: read
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@main
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@main
+        with:
+          go-version-file: go.mod
+
+      - name: Check linter configuration
+        run: make lint-config
+
+      - name: Run linter
+        run: make lint
+
+  test:
+    permissions:
+      contents: read
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@main
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@main
+        with:
+          go-version-file: go.mod
+
+      - name: Running Tests
+        run: |
+          go mod tidy
+          make test
+
+  integration-test:
+    permissions:
+      contents: read
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@main
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@main
+        with:
+          go-version-file: go.mod
+
+      - name: Running Integration Tests
+        run: |
+          go mod tidy
+          make test-integration
+
+  release:
+    needs: [lint, test, integration-test]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@main
+        with:
+          go-version-file: go.mod
+
+      - name: Build release binaries
+        run: |
+          go mod tidy
+          make build-release
+
+      - name: Build checksums
+        id: checksums
+        run: |
+          cd artifacts
+          sha256sum ./* > SHA256SUMS
+          echo 'sums<<EOF' >> "$GITHUB_OUTPUT"
+          cat SHA256SUMS >> "$GITHUB_OUTPUT"
+          echo 'EOF' >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*
+          body: |
+            Statically linked Linux binaries (`CGO_ENABLED=0`).
+
+            SHA256 checksums:
+            ```
+            ${{ steps.checksums.outputs.sums }}
+            ```
